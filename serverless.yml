@@ -1,4 +1,4 @@
-service: ai-chatbot-lambda
+service: kriyabot-lambda
 
 frameworkVersion: "3"
 
@@ -22,13 +22,11 @@ provider:
             - s3:GetObject
             - s3:PutObject
             - s3:DeleteObject
-          Resource: "arn:aws:s3:::${self:custom.s3BucketName}/*"
+          Resource: "arn:aws:s3:::${file(.env.json):BUCKET_NAME_FOR_KB}/*"
+
   apiGateway:
     binaryMediaTypes:
       - "*/*" # or just 'application/pdf' if you want to be specific
-
-custom:
-  s3BucketName: ai-chatbot-pdfs-${self:provider.stage}
 
 functions:
   upload:
@@ -71,23 +69,7 @@ functions:
           method: post
           cors: true
 
-resources:
-  Resources:
-    S3Bucket:
-      Type: AWS::S3::Bucket
-      Properties:
-        BucketName: ${self:custom.s3BucketName}
-        CorsConfiguration:
-          CorsRules:
-            - AllowedHeaders:
-                - "*"
-              AllowedMethods:
-                - GET
-                - PUT
-                - POST
-                - DELETE
-              AllowedOrigins:
-                - "*"
+# No resources section needed - using existing bucket
 
 plugins:
   - serverless-dotenv-plugin
