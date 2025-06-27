@@ -1,4 +1,4 @@
-service: kriyabot-lambda
+service: kriyabot-train-lambda
 
 frameworkVersion: "3"
 
@@ -53,21 +53,15 @@ functions:
           method: post
           cors: true
 
-  status:
-    handler: src/handlers/status.handler
+  enhance:
+    handler: src/handlers/enhance.handler
     events:
       - http:
-          path: status
-          method: get
-          cors: true
-
-  indexBatch:
-    handler: src/handlers/indexBatch.handler
-    events:
-      - http:
-          path: index-batch
+          path: enhance
           method: post
           cors: true
+
+
 
 # No resources section needed - using existing bucket
 

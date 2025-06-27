@@ -1,5 +1,5 @@
 export const CONSTANTS = {
-  INDEX_NAME: "kriyabot-index",
+  INDEX_NAME: "kriyabot-train-index",
   REGION: "us-east-1",
   CLOUD: "aws",
   EMBEDDING_DIMENSION: 1536,

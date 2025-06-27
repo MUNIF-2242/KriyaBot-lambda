@@ -1,4 +1,5 @@
 import { Pinecone } from "@pinecone-database/pinecone";
+import { CONSTANTS } from "../utils/constants.js";
 
 class PineconeServiceClass {
   constructor() {
@@ -7,7 +8,7 @@ class PineconeServiceClass {
       apiKey: process.env.PINECONE_API_KEY,
     });
 
-    this.indexName = process.env.PINECONE_INDEX_NAME || "kriyabot-index";
+    this.indexName = CONSTANTS.INDEX_NAME;
     this.index = null;
   }
 
