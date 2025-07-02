@@ -1,16 +1,31 @@
+import { config } from "dotenv";
+config(); // Load environment variables
+
 import { OpenAI } from "openai";
+import {
+  BedrockRuntimeClient,
+  InvokeModelCommand,
+} from "@aws-sdk/client-bedrock-runtime";
 
 class EmbeddingServiceClass {
-  constructor(apiKey = process.env.OPENAI_API_KEY) {
-    if (!apiKey) {
-      throw new Error("Missing OpenAI API key");
-    }
+  constructor() {
+    // OpenAI setup for embeddings
+    const openaiApiKey = process.env.OPENAI_API_KEY;
+    if (!openaiApiKey) throw new Error("Missing OpenAI API key");
 
-    this.openai = new OpenAI({ apiKey });
+    this.openai = new OpenAI({ apiKey: openaiApiKey });
     this.embeddingModel = "text-embedding-3-small";
-    this.chatModel = "gpt-4.1-nano";
+
+    // Bedrock setup for LLaMA 3
+    const awsRegion = process.env.AWS_REGION || "us-east-1";
+    this.bedrockClient = new BedrockRuntimeClient({
+      region: awsRegion,
+    });
+
+    this.llamaModelId = "meta.llama3-70b-instruct-v1:0";
   }
 
+  // Create embedding for single text
   async createEmbedding(text) {
     const response = await this.openai.embeddings.create({
       model: this.embeddingModel,
@@ -19,6 +34,7 @@ class EmbeddingServiceClass {
     return response.data[0].embedding;
   }
 
+  // Create embeddings for an array of texts
   async createEmbeddings(texts) {
     const embeddings = await Promise.all(
       texts.map((text) => this.createEmbedding(text))
@@ -26,8 +42,14 @@ class EmbeddingServiceClass {
     return embeddings;
   }
 
- async generateAnswer(context, question) {
-  const prompt = `You are Kriyakarak, a helpful and friendly assistant for users of the Kriyakarak platform.
+  // Format prompt with LLaMA 3 special tokens
+  formatPrompt(userPrompt) {
+    return `<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n${userPrompt}<|eot_id|>\n<|start_header_id|>assistant<|end_header_id|>\n`;
+  }
+
+  // Generate answer from LLaMA 3 via Bedrock
+  async generateAnswer(context, question) {
+    const userPrompt = `You are Kriyakarak, a helpful and friendly assistant for users of the Kriyakarak platform.
 
 Your task is to answer user questions using ONLY the most recent information provided in the "Latest Knowledge" section below. Do not use any external knowledge or assumptions.
 
@@ -66,16 +88,32 @@ ${question}
 
 Answer:`;
 
-  const completion = await this.openai.chat.completions.create({
-    model: this.chatModel,
-    messages: [{ role: "user", content: prompt }],
-    temperature: 0.2,
-    max_tokens: 200,
-  });
+    const formattedPrompt = this.formatPrompt(userPrompt);
 
-  return completion.choices[0].message.content;
-}
+    const body = {
+      prompt: formattedPrompt,
+      temperature: 0.2,
+      top_p: 0.9,
+      max_gen_len: 512,
+    };
 
+    const command = new InvokeModelCommand({
+      modelId: this.llamaModelId,
+      body: JSON.stringify(body),
+      contentType: "application/json",
+      accept: "application/json",
+    });
+
+    try {
+      const response = await this.bedrockClient.send(command);
+      const responseBody = await response.body.transformToString(); // Safe method
+      const result = JSON.parse(responseBody);
+      return result.generation || "No response generated.";
+    } catch (error) {
+      console.error("Error from Bedrock (LLaMA 3):", error);
+      return "Sorry, I couldn't process your request at the moment.";
+    }
+  }
 }
 
 const EmbeddingService = new EmbeddingServiceClass();
