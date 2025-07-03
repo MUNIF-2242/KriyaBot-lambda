@@ -91,7 +91,11 @@ class PineconeServiceClass {
       for (let i = 0; i < vectors.length; i += batchSize) {
         const batch = vectors.slice(i, i + batchSize);
         await this.index.upsert(batch);
-        console.log(`Upserted batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(vectors.length / batchSize)}`);
+        console.log(
+          `Upserted batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(
+            vectors.length / batchSize
+          )}`
+        );
       }
 
       console.log("All vectors upserted successfully");

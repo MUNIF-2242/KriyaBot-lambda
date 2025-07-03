@@ -3,6 +3,7 @@ import PineconeService from "../services/pineconeService.js";
 import EmbeddingService from "../services/embeddingService.js";
 import { successResponse, errorResponse } from "../utils/response.js";
 import { validateUrl } from "../utils/validation.js";
+import { CONSTANTS } from "../utils/constants.js";
 
 export const handler = async (event) => {
   try {
@@ -15,8 +16,8 @@ export const handler = async (event) => {
       body = JSON.parse(event.body || "{}");
     }
 
-    const { url, version } = body;
-
+    const { url } = body;
+    const version = body.version || CONSTANTS.KNOWLWDGEBASE_VERSION;
     validateUrl(url);
 
     await PineconeService.ensureIndexExists();

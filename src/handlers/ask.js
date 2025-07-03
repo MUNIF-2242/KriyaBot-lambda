@@ -13,7 +13,9 @@ export const handler = async (event) => {
       bodyString = Buffer.from(event.body, "base64").toString("utf-8");
     }
 
-    const { question, version = CONSTANTS.KNOWLWDGEBASE_VERSION } = JSON.parse(bodyString || "{}");
+    const { question, version = CONSTANTS.KNOWLWDGEBASE_VERSION } = JSON.parse(
+      bodyString || "{}"
+    );
 
     validateQuestion(question);
 
