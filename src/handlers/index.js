@@ -6,7 +6,7 @@ import { validateUrl } from "../utils/validation.js";
 
 export const handler = async (event) => {
   try {
-    // ✅ Handle base64-encoded body safely
+    // ✅ Decode base64-encoded body safely
     let body;
     if (event.isBase64Encoded) {
       const decoded = Buffer.from(event.body, "base64").toString("utf-8");
@@ -15,7 +15,7 @@ export const handler = async (event) => {
       body = JSON.parse(event.body || "{}");
     }
 
-    const { url } = body;
+    const { url, version } = body;
 
     validateUrl(url);
 
@@ -35,14 +35,9 @@ export const handler = async (event) => {
 
     const filePath = await PDFService.downloadPDF(url, docId);
     const text = await PDFService.extractTextFromPDF(filePath);
-
-    console.log(`##################`);
-    console.log(text);
-    console.log(`##################`);
     await PDFService.cleanupFile(filePath);
 
     const chunks = PDFService.splitText(text);
-
     const embeddings = await EmbeddingService.createEmbeddings(chunks);
 
     const addedAt = new Date().toISOString();
@@ -51,10 +46,11 @@ export const handler = async (event) => {
       values: embedding,
       metadata: {
         text: chunks[i],
-        docId: docId,
+        docId,
         sourceUrl: url,
         chunkIndex: i,
-        addedAt: addedAt,
+        addedAt,
+        version, // ✅ Inject version code here
       },
     }));
 
@@ -66,6 +62,7 @@ export const handler = async (event) => {
       sourceUrl: url,
       chunksAdded: vectors.length,
       addedAt,
+      version,
       skipped: false,
     });
   } catch (error) {

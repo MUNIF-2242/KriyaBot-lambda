@@ -3,7 +3,6 @@ import { CONSTANTS } from "../utils/constants.js";
 
 class PineconeServiceClass {
   constructor() {
-    // Initialize Pinecone client
     this.pinecone = new Pinecone({
       apiKey: process.env.PINECONE_API_KEY,
     });
@@ -14,7 +13,6 @@ class PineconeServiceClass {
 
   async ensureIndexExists() {
     try {
-      // Check if index exists
       const indexList = await this.pinecone.listIndexes();
       const indexExists = indexList.indexes?.some(
         (index) => index.name === this.indexName
@@ -24,7 +22,7 @@ class PineconeServiceClass {
         console.log(`Creating index: ${this.indexName}`);
         await this.pinecone.createIndex({
           name: this.indexName,
-          dimension: 1536, // OpenAI embedding dimension
+          dimension: 1536,
           metric: "cosine",
           spec: {
             serverless: {
@@ -34,12 +32,10 @@ class PineconeServiceClass {
           },
         });
 
-        // Wait for index to be ready
         console.log("Waiting for index to be ready...");
         await this.waitForIndexReady();
       }
 
-      // Get index instance
       this.index = this.pinecone.index(this.indexName);
       console.log(`Connected to index: ${this.indexName}`);
     } catch (error) {
@@ -50,7 +46,6 @@ class PineconeServiceClass {
 
   async waitForIndexReady(maxWaitTime = 60000) {
     const startTime = Date.now();
-
     while (Date.now() - startTime < maxWaitTime) {
       try {
         const indexStats = await this.pinecone.describeIndex(this.indexName);
@@ -59,9 +54,8 @@ class PineconeServiceClass {
           return;
         }
         console.log("Index not ready yet, waiting...");
-        await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait 5 seconds
-      } catch (error) {
-        console.log("Waiting for index to be created...");
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+      } catch {
         await new Promise((resolve) => setTimeout(resolve, 5000));
       }
     }
@@ -71,13 +65,11 @@ class PineconeServiceClass {
 
   async documentExists(docId) {
     try {
-      if (!this.index) {
-        await this.ensureIndexExists();
-      }
+      if (!this.index) await this.ensureIndexExists();
 
       const queryResponse = await this.index.query({
-        vector: new Array(1536).fill(0), // Dummy vector
-        filter: { docId: docId },
+        vector: new Array(1536).fill(0),
+        filter: { docId },
         topK: 1,
         includeMetadata: false,
       });
@@ -85,28 +77,21 @@ class PineconeServiceClass {
       return queryResponse.matches && queryResponse.matches.length > 0;
     } catch (error) {
       console.error("Error checking if document exists:", error);
-      return false; // Assume it doesn't exist if we can't check
+      return false;
     }
   }
 
   async upsertVectors(vectors) {
     try {
-      if (!this.index) {
-        await this.ensureIndexExists();
-      }
+      if (!this.index) await this.ensureIndexExists();
 
       console.log(`Upserting ${vectors.length} vectors to Pinecone`);
 
-      // Upsert in batches of 100 (Pinecone limit)
       const batchSize = 100;
       for (let i = 0; i < vectors.length; i += batchSize) {
         const batch = vectors.slice(i, i + batchSize);
         await this.index.upsert(batch);
-        console.log(
-          `Upserted batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(
-            vectors.length / batchSize
-          )}`
-        );
+        console.log(`Upserted batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(vectors.length / batchSize)}`);
       }
 
       console.log("All vectors upserted successfully");
@@ -116,25 +101,20 @@ class PineconeServiceClass {
     }
   }
 
-  async queryVectors(queryVector, filter = null, topK = 5) {
+  async queryVectors(queryVector, filter = {}, topK = 5, version = null) {
     try {
-      if (!this.index) {
-        await this.ensureIndexExists();
+      if (!this.index) await this.ensureIndexExists();
+
+      if (version) {
+        filter = { ...filter, version };
       }
 
-      // Build query parameters
-      const queryParams = {
+      const queryResponse = await this.index.query({
         vector: queryVector,
-        topK: topK,
+        topK,
         includeMetadata: true,
-      };
-
-      // Only add filter if it's provided and not empty
-      if (filter && Object.keys(filter).length > 0) {
-        queryParams.filter = filter;
-      }
-
-      const queryResponse = await this.index.query(queryParams);
+        ...(Object.keys(filter).length ? { filter } : {}),
+      });
 
       return queryResponse.matches || [];
     } catch (error) {
@@ -143,19 +123,19 @@ class PineconeServiceClass {
     }
   }
 
-  async getIndexStats() {
+  async getIndexStats(version = null) {
     try {
-      if (!this.index) {
-        await this.ensureIndexExists();
-      }
+      if (!this.index) await this.ensureIndexExists();
 
       const stats = await this.index.describeIndexStats();
 
-      // Get sample vectors to extract document metadata
+      const filter = version ? { version } : undefined;
+
       const queryRes = await this.index.query({
-        vector: new Array(1536).fill(0), // dummy vector - adjust dimension if different
+        vector: new Array(1536).fill(0),
         topK: 100,
         includeMetadata: true,
+        ...(filter && { filter }),
       });
 
       const documents = new Map();
@@ -165,6 +145,7 @@ class PineconeServiceClass {
             docId: match.metadata.docId,
             sourceUrl: match.metadata.sourceUrl,
             addedAt: match.metadata.addedAt,
+            version: match.metadata.version,
           });
         }
       });

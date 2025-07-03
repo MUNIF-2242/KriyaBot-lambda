@@ -7,4 +7,5 @@ export const CONSTANTS = {
   CHUNK_OVERLAP: 10,
   BATCH_SIZE: 100,
   TOP_K: 5,
+  KNOWLWDGEBASE_VERSION: "v1"
 };
