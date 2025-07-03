@@ -1,7 +1,6 @@
 import { config } from "dotenv";
 config(); // Load environment variables
 
-import { OpenAI } from "openai";
 import {
   BedrockRuntimeClient,
   InvokeModelCommand,
@@ -9,29 +8,39 @@ import {
 
 class EmbeddingServiceClass {
   constructor() {
-    // OpenAI setup for embeddings
-    const openaiApiKey = process.env.OPENAI_API_KEY;
-    if (!openaiApiKey) throw new Error("Missing OpenAI API key");
-
-    this.openai = new OpenAI({ apiKey: openaiApiKey });
-    this.embeddingModel = "text-embedding-3-small";
-
-    // Bedrock setup for LLaMA 3
+    // Bedrock setup for Titan Embedding and LLaMA 3
     const awsRegion = process.env.AWS_REGION || "us-east-1";
     this.bedrockClient = new BedrockRuntimeClient({
       region: awsRegion,
     });
 
+    // Model IDs
+    this.embeddingModelId = "amazon.titan-embed-text-v1";
     this.llamaModelId = "meta.llama3-70b-instruct-v1:0";
   }
 
-  // Create embedding for single text
+  // Create embedding for single text using Titan
   async createEmbedding(text) {
-    const response = await this.openai.embeddings.create({
-      model: this.embeddingModel,
-      input: text,
+    const body = {
+      inputText: text,
+    };
+
+    const command = new InvokeModelCommand({
+      modelId: this.embeddingModelId,
+      body: JSON.stringify(body),
+      contentType: "application/json",
+      accept: "application/json",
     });
-    return response.data[0].embedding;
+
+    try {
+      const response = await this.bedrockClient.send(command);
+      const responseBody = await response.body.transformToString();
+      const result = JSON.parse(responseBody);
+      return result.embedding;
+    } catch (error) {
+      console.error("Error from Titan Embedding:", error);
+      return null;
+    }
   }
 
   // Create embeddings for an array of texts
@@ -94,7 +103,7 @@ Answer:`;
       prompt: formattedPrompt,
       temperature: 0.2,
       top_p: 0.9,
-      max_gen_len: 512,
+      max_gen_len: 128,
     };
 
     const command = new InvokeModelCommand({
@@ -106,7 +115,7 @@ Answer:`;
 
     try {
       const response = await this.bedrockClient.send(command);
-      const responseBody = await response.body.transformToString(); // Safe method
+      const responseBody = await response.body.transformToString();
       const result = JSON.parse(responseBody);
       return result.generation || "No response generated.";
     } catch (error) {
