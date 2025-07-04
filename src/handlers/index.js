@@ -39,9 +39,13 @@ export const handler = async (event) => {
     await PDFService.cleanupFile(filePath);
 
     const chunks = PDFService.splitText(text);
+    console.log("Number of chunks:", chunks.length); // 🔍 Debugging help
+
     const embeddings = await EmbeddingService.createEmbeddings(chunks);
 
     const addedAt = new Date().toISOString();
+    const version = "v1"; // Use as version identifier
+
     const vectors = embeddings.map((embedding, i) => ({
       id: `${docId}-chunk-${i}`,
       values: embedding,
@@ -51,6 +55,7 @@ export const handler = async (event) => {
         sourceUrl: url,
         chunkIndex: i,
         addedAt,
+        version,
       },
     }));
 
@@ -62,6 +67,7 @@ export const handler = async (event) => {
       sourceUrl: url,
       chunksAdded: vectors.length,
       addedAt,
+      version,
       skipped: false,
     });
   } catch (error) {

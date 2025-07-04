@@ -7,5 +7,7 @@ export const CONSTANTS = {
   CHUNK_OVERLAP: 10,
   BATCH_SIZE: 100,
   TOP_K: 5,
-  KNOWLWDGEBASE_VERSION: "v1"
+  KNOWLWDGEBASE_VERSION: "v1",
+  EMBEDDING_TEXT_MODEL: "amazon.titan-embed-text-v1",
+  LLM_TEXT_MODEL: "meta.llama3-70b-instruct-v1:0",
 };

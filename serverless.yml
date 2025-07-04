@@ -62,7 +62,13 @@ functions:
           method: post
           cors: true
 
-
+  updateAnswer:
+    handler: src/handlers/updateAnswer.handler
+    events:
+      - http:
+          path: updateAnswer
+          method: post
+          cors: true
 
 # No resources section needed - using existing bucket
 
