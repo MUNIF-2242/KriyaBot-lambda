@@ -17,7 +17,7 @@ export const handler = async (event) => {
     }
 
     const { url } = body;
-    const version = body.version || CONSTANTS.KNOWLWDGEBASE_VERSION;
+
     validateUrl(url);
 
     await PineconeService.ensureIndexExists();
@@ -51,7 +51,6 @@ export const handler = async (event) => {
         sourceUrl: url,
         chunkIndex: i,
         addedAt,
-        version, // ✅ Inject version code here
       },
     }));
 
@@ -63,7 +62,6 @@ export const handler = async (event) => {
       sourceUrl: url,
       chunksAdded: vectors.length,
       addedAt,
-      version,
       skipped: false,
     });
   } catch (error) {

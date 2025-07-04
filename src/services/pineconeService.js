@@ -105,13 +105,9 @@ class PineconeServiceClass {
     }
   }
 
-  async queryVectors(queryVector, filter = {}, topK = 5, version = null) {
+  async queryVectors(queryVector, filter = {}, topK = 2) {
     try {
       if (!this.index) await this.ensureIndexExists();
-
-      if (version) {
-        filter = { ...filter, version };
-      }
 
       const queryResponse = await this.index.query({
         vector: queryVector,
@@ -127,19 +123,16 @@ class PineconeServiceClass {
     }
   }
 
-  async getIndexStats(version = null) {
+  async getIndexStats() {
     try {
       if (!this.index) await this.ensureIndexExists();
 
       const stats = await this.index.describeIndexStats();
 
-      const filter = version ? { version } : undefined;
-
       const queryRes = await this.index.query({
         vector: new Array(1536).fill(0),
         topK: 100,
         includeMetadata: true,
-        ...(filter && { filter }),
       });
 
       const documents = new Map();
@@ -149,7 +142,6 @@ class PineconeServiceClass {
             docId: match.metadata.docId,
             sourceUrl: match.metadata.sourceUrl,
             addedAt: match.metadata.addedAt,
-            version: match.metadata.version,
           });
         }
       });

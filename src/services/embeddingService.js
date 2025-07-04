@@ -8,26 +8,17 @@ import {
 
 class EmbeddingServiceClass {
   constructor() {
-    // Bedrock setup for Titan Embedding and LLaMA 3
     const awsRegion = process.env.AWS_REGION || "us-east-1";
-    this.bedrockClient = new BedrockRuntimeClient({
-      region: awsRegion,
-    });
+    this.bedrockClient = new BedrockRuntimeClient({ region: awsRegion });
 
-    // Model IDs
     this.embeddingModelId = "amazon.titan-embed-text-v1";
     this.llamaModelId = "meta.llama3-70b-instruct-v1:0";
   }
 
-  // Create embedding for single text using Titan
   async createEmbedding(text) {
-    const body = {
-      inputText: text,
-    };
-
     const command = new InvokeModelCommand({
       modelId: this.embeddingModelId,
-      body: JSON.stringify(body),
+      body: JSON.stringify({ inputText: text }),
       contentType: "application/json",
       accept: "application/json",
     });
@@ -43,44 +34,38 @@ class EmbeddingServiceClass {
     }
   }
 
-  // Create embeddings for an array of texts
   async createEmbeddings(texts) {
-    const embeddings = await Promise.all(
-      texts.map((text) => this.createEmbedding(text))
-    );
-    return embeddings;
+    return Promise.all(texts.map((text) => this.createEmbedding(text)));
   }
 
-  // Format prompt with LLaMA 3 special tokens
   formatPrompt(userPrompt) {
     return `<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n${userPrompt}<|eot_id|>\n<|start_header_id|>assistant<|end_header_id|>\n`;
   }
 
-  // Generate answer from LLaMA 3 via Bedrock
   async generateAnswer(context, question) {
     const userPrompt = `You are Kriyakarak, a helpful and friendly assistant for users of the Kriyakarak platform.
 
-Your task is to answer user questions using ONLY the most recent information provided in the "Latest Knowledge" section below. Do not use any external knowledge or assumptions.
+Always answer using ONLY the most recent information provided in the "Latest Knowledge" section. Ignore any outdated or unrelated data.
 
-**Give short, precise, and meaningful answers**. Aim for a brief summary (1-3 sentences max).
+**Give short, precise, and meaningful answers** (1–3 sentences max).
 
-When relevant information is available:
-- Respond in a natural tone.
-- Don't explain too much—get straight to the point.
-- Include markdown [links](https://kriyakarak.com/contact) if needed.
+✅ If the answer is in the latest knowledge:
+- Respond naturally and directly.
+- Do not explain too much.
+- Add helpful [links](https://kriyakarak.com/contact) when appropriate.
 
-If information is missing:
-- Gently say you're unsure.
-- Offer to connect with support: [Contact Support](https://kriyakarak.com/contact)
+⚠️ If the answer is missing:
+- Politely say you're not sure.
+- Offer to [Contact Support](https://kriyakarak.com/contact)
 
-**DO NOT**
+❌ DO NOT:
 - Mention "context"
 - Repeat the question
-- Use robotic or technical language
-- Make things up
+- Use robotic or technical tone
+- Make up anything
 
 ---
-Latest Knowledge:
+Latest Knowledge (always use the most recent data below):
 ${context}
 
 Question:
