@@ -3,6 +3,7 @@ config(); // Load environment variables
 
 import {
   BedrockRuntimeClient,
+  ConverseStreamCommand,
   InvokeModelCommand,
 } from "@aws-sdk/client-bedrock-runtime";
 
@@ -12,7 +13,7 @@ class EmbeddingServiceClass {
     this.bedrockClient = new BedrockRuntimeClient({ region: awsRegion });
 
     this.embeddingModelId = "amazon.titan-embed-text-v1";
-    this.llamaModelId = "meta.llama3-70b-instruct-v1:0";
+    this.claudeModelId = "anthropic.claude-3-haiku-20240307-v1:0";
   }
 
   async createEmbedding(text) {
@@ -38,13 +39,8 @@ class EmbeddingServiceClass {
     return Promise.all(texts.map((text) => this.createEmbedding(text)));
   }
 
-  formatPrompt(userPrompt) {
-    return `<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n${userPrompt}<|eot_id|>\n<|start_header_id|>assistant<|end_header_id|>\n`;
-  }
-
   async generateAnswer(context, question) {
     const userPrompt = `You are Kriyakarak, a helpful and friendly assistant for users of the Kriyakarak platform.
-
 
 **
 Always answer using ONLY the most recent information provided in the "Latest Knowledge" section. Ignore any outdated or unrelated data. If the context includes an answer, give a natural, brief response that reflects the meaning without repeating or quoting it directly.
@@ -71,37 +67,42 @@ Be warm, clear, and concise. Avoid technical phrasing, citations, or brackets.**
 - Make up anything
 
 ---
-Latest Knowledge (always use the most recent data below):
+Latest Knowledge:
 ${context}
 
 Question:
-${question}
+${question}`;
 
-Answer:`;
+    const messages = [
+      {
+        role: "user",
+        content: [{ text: userPrompt }],
+      },
+    ];
 
-    const formattedPrompt = this.formatPrompt(userPrompt);
-
-    const body = {
-      prompt: formattedPrompt,
-      temperature: 0.2,
-      top_p: 0.9,
-      max_gen_len: 512,
-    };
-
-    const command = new InvokeModelCommand({
-      modelId: this.llamaModelId,
-      body: JSON.stringify(body),
-      contentType: "application/json",
-      accept: "application/json",
+    const command = new ConverseStreamCommand({
+      modelId: this.claudeModelId,
+      messages,
+      inferenceConfig: {
+        temperature: 0.2,
+        topP: 0.9,
+        maxTokens: 512,
+      },
     });
 
     try {
       const response = await this.bedrockClient.send(command);
-      const responseBody = await response.body.transformToString();
-      const result = JSON.parse(responseBody);
-      return result.generation || "No response generated.";
+
+      let finalAnswer = "";
+      for await (const item of response.stream) {
+        if (item.contentBlockDelta?.delta?.text) {
+          finalAnswer += item.contentBlockDelta.delta.text;
+        }
+      }
+
+      return finalAnswer || "No response generated.";
     } catch (error) {
-      console.error("Error from Bedrock (LLaMA 3):", error);
+      console.error("Error from Bedrock Claude Haiku:", error);
       return "Sorry, I couldn't process your request at the moment.";
     }
   }
