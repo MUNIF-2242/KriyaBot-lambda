@@ -9,7 +9,7 @@ import {
 
 class EmbeddingServiceClass {
   constructor() {
-    const awsRegion = process.env.AWS_REGION || "us-east-1";
+    const awsRegion = process.env.REGION_FOR_BEDROCK || "us-east-1";
     this.bedrockClient = new BedrockRuntimeClient({ region: awsRegion });
 
     this.embeddingModelId = "amazon.titan-embed-text-v1";

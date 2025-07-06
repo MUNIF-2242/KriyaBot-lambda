@@ -1,4 +1,4 @@
-service: kriyabot-train-lambda
+service: fambot-lambda
 
 frameworkVersion: "3"
 
@@ -7,14 +7,13 @@ provider:
   runtime: nodejs20.x
   region: ${opt:region, 'us-east-1'}
   stage: ${opt:stage, 'dev'}
-  memorySize: 1024
+  memorySize: 2048
   timeout: 900
   environment:
     OPENAI_API_KEY: ${file(.env.json):OPENAI_API_KEY}
     PINECONE_API_KEY: ${file(.env.json):PINECONE_API_KEY}
     BUCKET_NAME_FOR_KB: ${file(.env.json):BUCKET_NAME_FOR_KB}
-    AWS_REGION: ${file(.env.json):AWS_REGION}
-    # Removed AWS_REGION - it's automatically available in Lambda
+    REGION_FOR_BEDROCK: ${file(.env.json):REGION_FOR_BEDROCK}
   iam:
     role:
       statements:
@@ -24,6 +23,15 @@ provider:
             - s3:PutObject
             - s3:DeleteObject
           Resource: "arn:aws:s3:::${file(.env.json):BUCKET_NAME_FOR_KB}/*"
+
+        # ✅ Add Bedrock permissions
+        - Effect: Allow
+          Action:
+            - bedrock:InvokeModel
+            - bedrock:InvokeModelWithResponseStream
+          Resource:
+            - arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v1
+            - arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-haiku-20240307-v1:0
 
   apiGateway:
     binaryMediaTypes:
