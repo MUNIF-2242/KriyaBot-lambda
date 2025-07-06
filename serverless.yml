@@ -13,7 +13,7 @@ provider:
     OPENAI_API_KEY: ${file(.env.json):OPENAI_API_KEY}
     PINECONE_API_KEY: ${file(.env.json):PINECONE_API_KEY}
     BUCKET_NAME_FOR_KB: ${file(.env.json):BUCKET_NAME_FOR_KB}
-    AWS_REGION: ${file(.env.json):AWS_REGION}
+    REGION_FOR_BEDROCK: ${file(.env.json):REGION_FOR_BEDROCK}
     # Removed AWS_REGION - it's automatically available in Lambda
   iam:
     role:
