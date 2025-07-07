@@ -8,12 +8,14 @@ provider:
   region: ${opt:region, 'us-east-1'}
   stage: ${opt:stage, 'dev'}
   memorySize: 1024
-  timeout: 900
+  timeout: 600
   environment:
     OPENAI_API_KEY: ${file(.env.json):OPENAI_API_KEY}
     PINECONE_API_KEY: ${file(.env.json):PINECONE_API_KEY}
     BUCKET_NAME_FOR_KB: ${file(.env.json):BUCKET_NAME_FOR_KB}
     REGION_FOR_BEDROCK: ${file(.env.json):REGION_FOR_BEDROCK}
+    PDF_PROCESSING_QUEUE_URL:
+      Ref: PdfProcessingQueue
 
   iam:
     role:
@@ -24,10 +26,21 @@ provider:
             - s3:PutObject
             - s3:DeleteObject
           Resource: "arn:aws:s3:::${file(.env.json):BUCKET_NAME_FOR_KB}/*"
+        - Effect: Allow
+          Action:
+            - sqs:SendMessage
+            - sqs:ReceiveMessage
+            - sqs:DeleteMessage
+            - sqs:GetQueueAttributes
+          Resource: "*"
+        - Effect: Allow
+          Action:
+            - bedrock:InvokeModel
+          Resource: arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v1
 
   apiGateway:
     binaryMediaTypes:
-      - "*/*" # or just 'application/pdf' if you want to be specific
+      - "*/*"
 
 functions:
   upload:
@@ -35,14 +48,6 @@ functions:
     events:
       - http:
           path: uploadPdf
-          method: post
-          cors: true
-
-  index:
-    handler: src/handlers/processPdf.handler
-    events:
-      - http:
-          path: processPdf
           method: post
           cors: true
 
@@ -70,13 +75,38 @@ functions:
           method: post
           cors: true
 
-  addKnowledgebase: # <- New function
+  addKnowledgebase:
     handler: src/handlers/addKnowledgebase.handler
     events:
       - http:
           path: addKnowledgebase
           method: post
           cors: true
+
+  queueProcessPdf:
+    handler: src/handlers/queueProcessPdf.handler
+    events:
+      - http:
+          path: queueProcessPdf
+          method: post
+          cors: true
+
+  processPdfFromQueue:
+    handler: src/handlers/processPdfFromQueue.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - PdfProcessingQueue
+              - Arn
+
+resources:
+  Resources:
+    PdfProcessingQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: pdf-processing-queue
+        VisibilityTimeout: 610
 
 plugins:
   - serverless-dotenv-plugin
