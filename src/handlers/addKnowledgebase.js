@@ -1,0 +1,70 @@
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import PineconeService from "../services/pineconeService.js";
+import EmbeddingService from "../services/embeddingService.js";
+import { successResponse, errorResponse } from "../utils/response.js";
+
+const s3Client = new S3Client({ region: process.env.AWS_REGION });
+const BUCKET_NAME = process.env.BUCKET_NAME_FOR_KB;
+
+export const handler = async (event) => {
+  try {
+    const body = event.isBase64Encoded
+      ? JSON.parse(Buffer.from(event.body, "base64").toString("utf-8"))
+      : JSON.parse(event.body);
+
+    const { content } = body;
+
+    if (!content || typeof content !== "string") {
+      return errorResponse("Missing or invalid content");
+    }
+
+    await PineconeService.ensureIndexExists();
+
+    const docId = `manual-${Date.now()}`;
+    const addedAt = new Date().toISOString();
+    const s3Key = `knowledgebase/${docId}.json`;
+
+    // 🔹 Save to S3
+    const putCommand = new PutObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: s3Key,
+      Body: JSON.stringify({ docId, content, addedAt }),
+      ContentType: "application/json",
+    });
+    await s3Client.send(putCommand);
+
+    // ✅ Use full HTTPS URL for sourceUrl
+    const sourceUrl = `https://${BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`;
+
+    // 🔹 Create embeddings
+    const chunks = [content]; // Optionally split into multiple chunks
+    const embeddings = await EmbeddingService.createEmbeddings(chunks);
+
+    const vectors = embeddings.map((embedding, i) => ({
+      id: `${docId}-chunk-${i}`,
+      values: embedding,
+      metadata: {
+        text: chunks[i],
+        docId,
+        sourceUrl, // ✅ HTTPS URL
+        chunkIndex: i,
+        addedAt,
+        version: "v1",
+      },
+    }));
+
+    await PineconeService.upsertVectors(vectors);
+
+    return successResponse({
+      message: "Content saved to S3 and embedded into Pinecone",
+      docId,
+      chunksAdded: vectors.length,
+      s3Key,
+      sourceUrl,
+      addedAt,
+    });
+  } catch (error) {
+    console.error("addKnowledgebase handler error:", error);
+    return errorResponse(error);
+  }
+};

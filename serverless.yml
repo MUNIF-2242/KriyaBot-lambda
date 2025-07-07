@@ -13,8 +13,8 @@ provider:
     OPENAI_API_KEY: ${file(.env.json):OPENAI_API_KEY}
     PINECONE_API_KEY: ${file(.env.json):PINECONE_API_KEY}
     BUCKET_NAME_FOR_KB: ${file(.env.json):BUCKET_NAME_FOR_KB}
-    AWS_REGION: ${file(.env.json):AWS_REGION}
-    # Removed AWS_REGION - it's automatically available in Lambda
+    REGION_FOR_BEDROCK: ${file(.env.json):REGION_FOR_BEDROCK}
+
   iam:
     role:
       statements:
@@ -70,7 +70,13 @@ functions:
           method: post
           cors: true
 
-# No resources section needed - using existing bucket
+  addKnowledgebase: # <- New function
+    handler: src/handlers/addKnowledgebase.handler
+    events:
+      - http:
+          path: addKnowledgebase
+          method: post
+          cors: true
 
 plugins:
   - serverless-dotenv-plugin
