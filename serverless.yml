@@ -31,34 +31,34 @@ provider:
 
 functions:
   upload:
-    handler: src/handlers/upload.handler
+    handler: src/handlers/uploadPdf.handler
     events:
       - http:
-          path: upload
+          path: uploadPdf
           method: post
           cors: true
 
   index:
-    handler: src/handlers/index.handler
+    handler: src/handlers/processPdf.handler
     events:
       - http:
-          path: index
+          path: processPdf
           method: post
           cors: true
 
   ask:
-    handler: src/handlers/ask.handler
+    handler: src/handlers/askQuestion.handler
     events:
       - http:
-          path: ask
+          path: askQuestion
           method: post
           cors: true
 
   enhance:
-    handler: src/handlers/enhance.handler
+    handler: src/handlers/enhanceQuestion.handler
     events:
       - http:
-          path: enhance
+          path: enhanceQuestion
           method: post
           cors: true
 
