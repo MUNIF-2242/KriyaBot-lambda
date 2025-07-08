@@ -19,9 +19,9 @@ export const createResponse = (statusCode, body, headers = {}) => {
   };
 };
 
-export const successResponse = (data) => {
+export const successResponse = (data, statusCode = 200) => {
   console.log("Success response data:", data);
-  return createResponse(200, data);
+  return createResponse(statusCode, data);
 };
 
 export const errorResponse = (error, statusCode = 500) => {

@@ -1,6 +1,7 @@
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import PineconeService from "../services/pineconeService.js";
 import EmbeddingService from "../services/embeddingService.js";
+import PDFService from "../services/pdfService.js"; // ✅ For splitText
 import { successResponse, errorResponse } from "../utils/response.js";
 
 const s3Client = new S3Client({ region: process.env.AWS_REGION });
@@ -24,7 +25,7 @@ export const handler = async (event) => {
     const addedAt = new Date().toISOString();
     const s3Key = `knowledgebase/${docId}.json`;
 
-    // 🔹 Save to S3
+    // 🔹 Save original content to S3
     const putCommand = new PutObjectCommand({
       Bucket: BUCKET_NAME,
       Key: s3Key,
@@ -33,11 +34,15 @@ export const handler = async (event) => {
     });
     await s3Client.send(putCommand);
 
-    // ✅ Use full HTTPS URL for sourceUrl
+    // ✅ Full URL to the file in S3
     const sourceUrl = `https://${BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`;
 
-    // 🔹 Create embeddings
-    const chunks = [content]; // Optionally split into multiple chunks
+    // 🔹 Split content into chunks
+    const chunks = PDFService.splitText(content); // ✅ Use same splitter as PDF handler
+
+    //console.log("🔹 CHUNKS COUNT:", chunks.length);
+
+    // 🔹 Create embeddings for each chunk
     const embeddings = await EmbeddingService.createEmbeddings(chunks);
 
     const vectors = embeddings.map((embedding, i) => ({
@@ -46,13 +51,14 @@ export const handler = async (event) => {
       metadata: {
         text: chunks[i],
         docId,
-        sourceUrl, // ✅ HTTPS URL
+        sourceUrl,
         chunkIndex: i,
         addedAt,
         version: "v1",
       },
     }));
 
+    // 🔹 Upsert all vectors to Pinecone
     await PineconeService.upsertVectors(vectors);
 
     return successResponse({
